@@ -6,11 +6,27 @@ A personal, manual trading journal inspired by TradeZella’s journaling workflo
 
 - **Dashboard overview** with net P&L, win rate, profit factor, average R, review progress, and recent session performance.
 - **Manual trade log** with searchable and filterable trades.
+- **Expanded trade entry** for asset class, account, session, planned vs actual levels, planned vs actual risk, custom tags, and partial exits.
+- **Screenshot uploads** saved into the local journal file.
+- **Screenshot file storage** in `data/uploads/` when running through the local server.
 - **Trade review screen** with notes, strategy, market condition, emotion, mistakes, rule adherence, R multiple, and P&L.
+- **Calendar view** for monthly P&L, trade count, and daily review shortcuts.
 - **Daily journal** for pre-market plans, end-of-day recaps, mental state, and daily process checklist.
+- **Weekly review** for best/worst trade, biggest mistake, best setup, and next-week improvement.
 - **Playbook** for defining strategies and reviewing how each setup performs.
+- **Strategy rule checklists** with per-trade rule scoring and execution scoring.
 - **Reports** grouped by strategy, mistake, emotion, and market condition.
+- **Risk dashboard** with average risk, expectancy, max drawdown, biggest win/loss, and max daily loss guard.
+- **Equity curve and drawdown charts** for account-level review.
+- **Mistake analytics** showing mistake cost, common mistakes, and mistakes by emotion/session.
+- **Notebook** for searchable lessons and observations.
+- **Blocked trade log** for trades you skipped because they violated your plan.
+- **Review reminders** for open trades in the dashboard queue.
+- **Autosave** for daily and weekly journal notes.
 - **Import/export** support for JSON backups.
+- **CSV export/import** for spreadsheet workflows.
+- **Automatic backup rotation** in `data/backups/`.
+- **Undo delete**, duplicate trade detection, partial-exit validation, weekly review printing, and dark mode.
 - **File-backed persistence** through a local Node server.
 
 ## Project Files
