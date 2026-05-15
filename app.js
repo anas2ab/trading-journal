@@ -35,7 +35,27 @@ const defaultStrategies = [
     rules: "Level marked before session. Wait for rejection candle. Risk must be defined. No chasing.",
     checklist: ["Level planned before session", "Rejection confirmed", "Risk defined", "No chasing"],
   },
+  {
+    id: crypto.randomUUID(),
+    name: "Long Call",
+    rules: "Define thesis, expiry, strike, premium risk, and invalidation before entry. Avoid chasing inflated premium.",
+    checklist: ["Directional thesis defined", "Expiry selected", "Premium risk accepted", "Invalidation level set"],
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Long Put",
+    rules: "Define bearish thesis, expiry, strike, premium risk, and invalidation before entry. Avoid entering after IV expansion without a plan.",
+    checklist: ["Bearish thesis defined", "Expiry selected", "Premium risk accepted", "Invalidation level set"],
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Cash Secured Put",
+    rules: "Sell puts only on tickers you are willing to own. Confirm cash available, assignment plan, and max risk.",
+    checklist: ["Willing to own shares", "Cash available", "Assignment plan defined", "Max risk reviewed"],
+  },
 ];
+
+const requiredOptionStrategies = ["Long Call", "Long Put", "Cash Secured Put"];
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -255,6 +275,10 @@ function normalizeState(nextState) {
     ...strategy,
     checklist: strategy.checklist || String(strategy.rules || "").split(".").map((rule) => rule.trim()).filter(Boolean),
   }));
+  const existingStrategyNames = new Set(nextState.strategies.map((strategy) => strategy.name));
+  defaultStrategies
+    .filter((strategy) => requiredOptionStrategies.includes(strategy.name) && !existingStrategyNames.has(strategy.name))
+    .forEach((strategy) => nextState.strategies.push({ ...strategy }));
   nextState.dayNotes ||= {};
   nextState.weeklyReviews ||= {};
   nextState.notebook ||= [];
