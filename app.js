@@ -764,12 +764,12 @@ function renderTradeDetail() {
           <p>${trade.notes || "No notes yet."}</p>
           ${renderRuleChecklistSummary(trade)}
           <div class="inline-actions">
-            <span class="tag">${trade.strategy}</span>
-            <span class="tag">${trade.assetClass}</span>
-            <span class="tag">${trade.session}</span>
-            <span class="tag">${trade.market}</span>
-            <span class="tag">${trade.emotion}</span>
-            <span class="tag ${trade.mistake !== "None" ? "warn" : "good"}">${trade.mistake}</span>
+            ${renderTag(trade.strategy)}
+            ${renderTag(trade.assetClass)}
+            ${renderTag(trade.session)}
+            ${renderTag(trade.market)}
+            ${renderTag(trade.emotion)}
+            ${renderTag(trade.mistake, trade.mistake !== "None" ? "warn" : "good")}
             ${tradeTags(trade).map((tag) => `<span class="tag">${tag}</span>`).join("")}
           </div>
         </div>
@@ -795,6 +795,11 @@ function renderTradeDetail() {
     saveState();
     render();
   });
+}
+
+function renderTag(value, className = "") {
+  if (!value) return "";
+  return `<span class="tag ${className}">${value}</span>`;
 }
 
 function renderRuleChecklistSummary(trade) {
@@ -1348,8 +1353,9 @@ function renderReports() {
 
 function renderBreakdown(title, key) {
   const rows = Object.entries(state.trades.reduce((acc, trade) => {
-    acc[trade[key]] ||= [];
-    acc[trade[key]].push(trade);
+    const label = breakdownLabel(trade[key], key);
+    acc[label] ||= [];
+    acc[label].push(trade);
     return acc;
   }, {})).map(([label, trades]) => ({ label, trades, ...metrics(trades) }))
     .sort((a, b) => b.total - a.total);
@@ -1371,6 +1377,14 @@ function renderBreakdown(title, key) {
       </div>
     </section>
   `;
+}
+
+function breakdownLabel(value, key = "") {
+  const text = String(value ?? "").trim();
+  if (text) return text;
+  if (key === "emotion") return "Not logged";
+  if (key === "mistake") return "None";
+  return "Unspecified";
 }
 
 function renderTagBreakdown() {
