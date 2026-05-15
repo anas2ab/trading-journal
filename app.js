@@ -43,6 +43,7 @@ const sampleTrades = [
   {
     id: crypto.randomUUID(),
     date: today,
+    exitDate: today,
     entryTime: "09:43",
     exitTime: "10:18",
     symbol: "AAPL",
@@ -77,6 +78,7 @@ const sampleTrades = [
   {
     id: crypto.randomUUID(),
     date: today,
+    exitDate: today,
     entryTime: "11:07",
     exitTime: "11:28",
     symbol: "TSLA",
@@ -111,6 +113,7 @@ const sampleTrades = [
   {
     id: crypto.randomUUID(),
     date: offsetDate(-2),
+    exitDate: offsetDate(-2),
     entryTime: "14:10",
     exitTime: "15:02",
     symbol: "NVDA",
@@ -145,6 +148,7 @@ const sampleTrades = [
   {
     id: crypto.randomUUID(),
     date: offsetDate(-5),
+    exitDate: offsetDate(-5),
     entryTime: "10:52",
     exitTime: "11:11",
     symbol: "MSFT",
@@ -259,6 +263,7 @@ function normalizeState(nextState) {
   nextState.trades = nextState.trades.map((trade) => ({
     assetClass: "Stocks",
     account: nextState.settings.accountName || "Main",
+    exitDate: trade.date || today,
     plannedEntry: trade.entry || 0,
     plannedStop: trade.stop || 0,
     plannedTarget: trade.target || 0,
@@ -282,6 +287,7 @@ function normalizeState(nextState) {
     plannedTarget: Number(trade.plannedTarget || 0),
     plannedRisk: Number(trade.plannedRisk || 0),
     actualRisk: Number(trade.actualRisk || 0),
+    exitDate: trade.exitDate || trade.date,
     followedRules: trade.followedRules === true || trade.followedRules === "true",
     reviewed: trade.reviewed === true || trade.reviewed === "true",
     ruleChecks: Array.isArray(trade.ruleChecks) ? trade.ruleChecks : String(trade.ruleChecks || "").split("|").filter(Boolean),
@@ -309,24 +315,28 @@ async function loadPersistedState() {
   state = loadState();
 }
 
-function saveState() {
+async function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  saveStateToServer();
+  const savedToFile = await saveStateToServer();
   updateSidebar();
+  return savedToFile;
 }
 
 async function saveStateToServer() {
   setSyncStatus("Saving", "saving");
   try {
-    await fetch(API_URL, {
+    const response = await fetch(API_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state, null, 2),
     });
+    if (!response.ok) throw new Error("Journal file save failed");
     setSyncStatus("Saved to file");
+    return true;
   } catch {
     setSyncStatus("Saved in browser", "offline");
     // The app still persists locally when opened without the local server.
+    return false;
   }
 }
 
@@ -423,13 +433,39 @@ function executionScore(trade) {
 
 function tradeDurationMinutes(trade) {
   if (!trade.entryTime || !trade.exitTime) return 0;
-  const [eh, em] = trade.entryTime.split(":").map(Number);
-  const [xh, xm] = trade.exitTime.split(":").map(Number);
-  return Math.max(0, (xh * 60 + xm) - (eh * 60 + em));
+  const exitDate = trade.exitDate || trade.date;
+  const entry = new Date(`${trade.date}T${trade.entryTime}`);
+  const exit = new Date(`${exitDate}T${trade.exitTime}`);
+  if (Number.isNaN(entry.getTime()) || Number.isNaN(exit.getTime())) return 0;
+  return Math.max(0, Math.round((exit - entry) / 60000));
+}
+
+function tradeDurationLabel(trade) {
+  const minutes = tradeDurationMinutes(trade);
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  if (days) return `${days}d ${hours}h ${mins}m`;
+  if (hours) return `${hours}h ${mins}m`;
+  return `${mins} min`;
 }
 
 function dayName(date) {
   return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+}
+
+function tradeDateLabel(trade) {
+  const exitDate = trade.exitDate || trade.date;
+  return exitDate && exitDate !== trade.date ? `${trade.date} to ${exitDate}` : trade.date;
+}
+
+function tradeTimeLabel(trade) {
+  const end = trade.exitTime ? `${trade.exitDate && trade.exitDate !== trade.date ? `${trade.exitDate} ` : ""}${trade.exitTime}` : "Open";
+  return `${trade.date} ${trade.entryTime || ""} - ${end}`.trim();
+}
+
+function tradeRealizedDate(trade) {
+  return trade.exitDate || trade.date;
 }
 
 function metrics(trades = state.trades) {
@@ -521,7 +557,7 @@ function render() {
 }
 
 function updateSidebar() {
-  const todaysTrades = state.trades.filter((trade) => trade.date === today);
+  const todaysTrades = state.trades.filter((trade) => tradeRealizedDate(trade) === today);
   const total = todaysTrades.reduce((sum, trade) => sum + tradePnl(trade), 0);
   document.querySelector("#sidebarPnl").textContent = money(total);
   document.querySelector("#sidebarPnl").className = total >= 0 ? "positive" : "negative";
@@ -609,7 +645,7 @@ function renderReviewQueue() {
   return `<div class="day-list">${queue.map((trade) => `
     <button class="day-item click-row" data-trade-id="${trade.id}" type="button">
       <div class="day-row"><strong>${trade.symbol} ${trade.direction}</strong><span class="${tradePnl(trade) >= 0 ? "positive" : "negative"}">${money(tradePnl(trade))}</span></div>
-      <span class="muted">${trade.date} · ${daysSince(trade.date)} days old · ${trade.mistake} · ${trade.quality}</span>
+      <span class="muted">${tradeDateLabel(trade)} · ${daysSince(trade.date)} days old · ${trade.mistake} · ${trade.quality}</span>
     </button>
   `).join("")}</div>`;
 }
@@ -675,13 +711,13 @@ function renderTradeTable(trades) {
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Symbol</th><th>Asset</th><th>Side</th><th>Session</th><th>Strategy</th><th>Score</th><th>Quality</th><th>Mistake</th><th>R</th><th>P&L</th><th>Status</th>
+            <th>Dates</th><th>Symbol</th><th>Asset</th><th>Side</th><th>Session</th><th>Strategy</th><th>Score</th><th>Quality</th><th>Mistake</th><th>R</th><th>P&L</th><th>Status</th>
           </tr>
         </thead>
         <tbody>
           ${trades.map((trade) => `
             <tr class="click-row" data-trade-id="${trade.id}">
-              <td>${trade.date}</td>
+              <td>${tradeDateLabel(trade)}</td>
               <td><strong>${trade.symbol}</strong></td>
               <td>${trade.assetClass}</td>
               <td>${trade.direction}</td>
@@ -714,7 +750,7 @@ function renderTradeDetail() {
     <section class="panel trade-detail">
       <div class="panel-header">
         <div>
-          <span class="eyebrow">${trade.date} · ${trade.entryTime} - ${trade.exitTime || "Open"}</span>
+          <span class="eyebrow">${tradeTimeLabel(trade)}</span>
           <h2>${trade.symbol} ${trade.direction}</h2>
         </div>
         <div class="inline-actions">
@@ -742,7 +778,7 @@ function renderTradeDetail() {
           <div class="metric-line"><span>Execution Score</span><strong>${executionScore(trade)}%</strong></div>
           <div class="metric-line"><span>Rule Score</span><strong>${ruleScore(trade)}%</strong></div>
           <div class="metric-line"><span>R Multiple</span><strong>${number(tradeR(trade), 2)}R</strong></div>
-          <div class="metric-line"><span>Duration</span><strong>${tradeDurationMinutes(trade)} min</strong></div>
+          <div class="metric-line"><span>Duration</span><strong>${tradeDurationLabel(trade)}</strong></div>
           <div class="metric-line"><span>Entry / Exit</span><strong>${trade.entry} / ${trade.exit}</strong></div>
           <div class="metric-line"><span>Planned Entry / Stop</span><strong>${trade.plannedEntry || "—"} / ${trade.plannedStop || "—"}</strong></div>
           <div class="metric-line"><span>Stop / Target</span><strong>${trade.stop || "—"} / ${trade.target || "—"}</strong></div>
@@ -779,7 +815,7 @@ function renderDaily() {
     days.unshift({ date: selectedDay, pnl: 0, trades: [] });
   }
   const note = getDayNote(selectedDay);
-  const selectedTrades = state.trades.filter((trade) => trade.date === selectedDay);
+  const selectedTrades = state.trades.filter((trade) => tradeRealizedDate(trade) === selectedDay);
   appView.innerHTML = `
     <div class="journal-grid">
       <section class="panel">
@@ -865,7 +901,7 @@ function renderCalendar() {
     const date = new Date(firstCell);
     date.setDate(firstCell.getDate() + index);
     const iso = date.toISOString().slice(0, 10);
-    const trades = state.trades.filter((trade) => trade.date === iso);
+    const trades = state.trades.filter((trade) => tradeRealizedDate(trade) === iso);
     const pnl = trades.reduce((sum, trade) => sum + tradePnl(trade), 0);
     return { iso, date, trades, pnl, inMonth: date.getMonth() === month };
   });
@@ -914,7 +950,7 @@ function renderCalendar() {
 
 function renderWeekly() {
   const week = getWeekRange(selectedDay);
-  const trades = state.trades.filter((trade) => trade.date >= week.start && trade.date <= week.end);
+  const trades = state.trades.filter((trade) => tradeRealizedDate(trade) >= week.start && tradeRealizedDate(trade) <= week.end);
   const m = metrics(trades);
   const review = state.weeklyReviews[week.key] ||= { best: "", worst: "", mistake: "", setup: "", improvement: "" };
   appView.innerHTML = `
@@ -1368,7 +1404,7 @@ function renderTagBreakdown() {
 }
 
 function renderDayOfWeekBreakdown() {
-  return renderComputedBreakdown("Day Of Week", (trade) => dayName(trade.date));
+  return renderComputedBreakdown("Day Of Week", (trade) => dayName(tradeRealizedDate(trade)));
 }
 
 function renderDurationBreakdown() {
@@ -1478,8 +1514,9 @@ function renderSettings() {
 
 function groupByDate(trades) {
   const grouped = trades.reduce((acc, trade) => {
-    acc[trade.date] ||= [];
-    acc[trade.date].push(trade);
+    const date = tradeRealizedDate(trade);
+    acc[date] ||= [];
+    acc[date].push(trade);
     return acc;
   }, {});
   return Object.entries(grouped)
@@ -1520,6 +1557,7 @@ function openTradeDialog(id = null) {
   strategySelect.onchange = () => renderStrategyRuleChecks();
   const values = trade ?? {
     date: today,
+    exitDate: today,
     entryTime: "09:30",
     exitTime: "",
     symbol: "",
@@ -1551,6 +1589,7 @@ function openTradeDialog(id = null) {
     reviewed: false,
     ruleChecks: [],
   };
+  values.exitDate ||= values.date;
   Object.entries(values).forEach(([key, value]) => {
     const field = tradeForm.elements[key];
     if (!field) return;
@@ -1587,6 +1626,7 @@ async function saveTradeFromForm(event) {
   const trade = {
     id: editingTradeId ?? crypto.randomUUID(),
     date: data.date,
+    exitDate: data.exitDate || data.date,
     entryTime: data.entryTime,
     exitTime: data.exitTime,
     symbol: data.symbol.trim().toUpperCase(),
@@ -1624,15 +1664,16 @@ async function saveTradeFromForm(event) {
     state.trades.unshift(trade);
   }
   selectedTradeId = trade.id;
-  selectedDay = trade.date;
-  saveState();
-  showToast(editingTradeId ? "Trade updated" : "Trade saved");
+  selectedDay = tradeRealizedDate(trade);
+  const savedToFile = await saveState();
+  showToast(savedToFile ? (editingTradeId ? "Trade updated" : "Trade saved") : "Saved in browser only. Start the local server to save to file.");
   tradeDialog.close();
   activeView = "trades";
   render();
 }
 
 function validateTradeInput(data) {
+  if (data.exitDate && data.exitDate < data.date) return "Close date cannot be before open date";
   const partials = parsePartials(data.partials);
   if (data.partials && !partials.length) return "Use partial format like 186.20@20";
   const partialSize = partials.reduce((sum, item) => sum + item.size, 0);
@@ -1727,18 +1768,24 @@ function importData(event) {
   const file = event.target.files?.[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
-    state = normalizeState(JSON.parse(reader.result));
-    selectedTradeId = state.trades[0]?.id ?? null;
-    saveState();
-    showToast("Journal imported");
-    render();
+  reader.onload = async () => {
+    try {
+      state = normalizeState(JSON.parse(reader.result));
+      selectedTradeId = state.trades[0]?.id ?? null;
+      const savedToFile = await saveState();
+      showToast(savedToFile ? "Journal imported and saved to file" : "Journal imported in browser only. Start the local server to save to file.");
+      render();
+    } catch {
+      showToast("Import failed. Choose a valid journal JSON file.");
+    } finally {
+      event.target.value = "";
+    }
   };
   reader.readAsText(file);
 }
 
 function exportCsv() {
-  const fields = ["date", "entryTime", "exitTime", "symbol", "assetClass", "account", "direction", "strategy", "entry", "exit", "size", "fees", "stop", "target", "plannedRisk", "actualRisk", "session", "quality", "emotion", "mistake", "market", "customTags", "partials", "notes", "followedRules", "reviewed"];
+  const fields = ["date", "exitDate", "entryTime", "exitTime", "symbol", "assetClass", "account", "direction", "strategy", "entry", "exit", "size", "fees", "stop", "target", "plannedRisk", "actualRisk", "session", "quality", "emotion", "mistake", "market", "customTags", "partials", "notes", "followedRules", "reviewed"];
   const rows = [
     fields.join(","),
     ...state.trades.map((trade) => fields.map((field) => csvEscape(trade[field] ?? "")).join(",")),
@@ -1760,7 +1807,7 @@ function importCsv() {
     const file = input.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const [headerLine, ...lines] = String(reader.result).trim().split(/\r?\n/);
       const headers = parseCsvLine(headerLine).map(normalizeCsvHeader);
       const trades = lines.filter(Boolean).map((line) => {
@@ -1769,8 +1816,8 @@ function importCsv() {
         return normalizeState({ trades: [{ ...trade, id: crypto.randomUUID() }], strategies: state.strategies, dayNotes: {}, weeklyReviews: {}, settings: state.settings }).trades[0];
       });
       state.trades = [...trades, ...state.trades];
-      saveState();
-      showToast(`${trades.length} CSV trades imported`);
+      const savedToFile = await saveState();
+      showToast(savedToFile ? `${trades.length} CSV trades imported and saved to file` : `${trades.length} CSV trades imported in browser only. Start the local server to save to file.`);
       activeView = "trades";
       render();
     };
@@ -1811,6 +1858,11 @@ function normalizeCsvHeader(header) {
   return {
     datetime: "date",
     tradedate: "date",
+    openingdate: "date",
+    opendate: "date",
+    closingdate: "exitDate",
+    closedate: "exitDate",
+    exitdate: "exitDate",
     ticker: "symbol",
     instrument: "symbol",
     side: "direction",

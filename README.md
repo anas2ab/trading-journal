@@ -144,6 +144,10 @@ The app uses two persistence layers:
 
 For the most reliable setup, use the local server URL instead of opening the HTML file directly.
 
+Your journal data is local to your machine. Run the app with `node server.js`, then use `http://localhost:4173`; the top bar should show **Saved to file** after edits or imports. If it shows **Saved in browser**, the local server is not running and changes are only in that browser profile.
+
+`data/journal.json`, `data/backups/`, and `data/uploads/` are ignored for future local data changes so users can keep private journal files on their own machines.
+
 ## Basic Workflow
 
 1. Open the dashboard.
