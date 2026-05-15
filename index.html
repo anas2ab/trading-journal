@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trading Journal</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="brand-mark">TJ</span>
+          <div>
+            <strong>Trading Journal</strong>
+            <span>Manual review workspace</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" id="navList"></nav>
+
+        <section class="sidebar-panel">
+          <span class="eyebrow">Today</span>
+          <strong id="sidebarPnl">$0.00</strong>
+          <span id="sidebarMeta">No trades logged</span>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow" id="viewEyebrow">Journal</span>
+            <h1 id="viewTitle">Dashboard</h1>
+          </div>
+        <div class="topbar-actions">
+            <span class="sync-pill" id="syncStatus">Saved locally</span>
+            <button class="ghost-button" id="exportButton" type="button" title="Export journal data">Export</button>
+            <label class="ghost-button import-label" title="Import journal data">
+              Import
+              <input id="importInput" type="file" accept="application/json" />
+            </label>
+            <button class="primary-button" id="newTradeButton" type="button">New Trade</button>
+          </div>
+        </header>
+
+        <section id="appView" class="view"></section>
+      </main>
+    </div>
+
+    <dialog id="tradeDialog" class="trade-dialog">
+      <form method="dialog" id="tradeForm">
+        <header class="dialog-header">
+          <div>
+            <span class="eyebrow" id="dialogMode">New Trade</span>
+            <h2>Trade Entry</h2>
+          </div>
+          <button class="icon-button" data-close-dialog type="button" aria-label="Close">×</button>
+        </header>
+
+        <div class="form-grid">
+          <label>
+            Date
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Entry Time
+            <input name="entryTime" type="time" required />
+          </label>
+          <label>
+            Exit Time
+            <input name="exitTime" type="time" />
+          </label>
+          <label>
+            Symbol
+            <input name="symbol" type="text" required placeholder="AAPL, ES, BTC" />
+          </label>
+          <label>
+            Direction
+            <select name="direction">
+              <option>Long</option>
+              <option>Short</option>
+            </select>
+          </label>
+          <label>
+            Strategy
+            <select name="strategy"></select>
+          </label>
+          <label>
+            Entry Price
+            <input name="entry" type="number" step="0.01" required />
+          </label>
+          <label>
+            Exit Price
+            <input name="exit" type="number" step="0.01" required />
+          </label>
+          <label>
+            Size
+            <input name="size" type="number" step="0.0001" required />
+          </label>
+          <label>
+            Fees
+            <input name="fees" type="number" step="0.01" value="0" />
+          </label>
+          <label>
+            Stop Loss
+            <input name="stop" type="number" step="0.01" />
+          </label>
+          <label>
+            Target
+            <input name="target" type="number" step="0.01" />
+          </label>
+          <label>
+            Setup Quality
+            <select name="quality">
+              <option>A+</option>
+              <option>A</option>
+              <option>B</option>
+              <option>C</option>
+              <option>Forced</option>
+            </select>
+          </label>
+          <label>
+            Emotion
+            <select name="emotion">
+              <option>Calm</option>
+              <option>Patient</option>
+              <option>Anxious</option>
+              <option>Greedy</option>
+              <option>Impatient</option>
+              <option>Confident</option>
+            </select>
+          </label>
+          <label>
+            Mistake
+            <select name="mistake">
+              <option>None</option>
+              <option>FOMO</option>
+              <option>Revenge trade</option>
+              <option>Moved stop</option>
+              <option>Exited early</option>
+              <option>Oversized</option>
+              <option>Overtraded</option>
+            </select>
+          </label>
+          <label>
+            Market
+            <select name="market">
+              <option>Trending</option>
+              <option>Choppy</option>
+              <option>Volatile</option>
+              <option>Low volume</option>
+              <option>News day</option>
+            </select>
+          </label>
+          <label class="wide">
+            Screenshot / Chart URL
+            <input name="image" type="url" placeholder="Optional image link" />
+          </label>
+          <label class="wide">
+            Trade Notes
+            <textarea name="notes" rows="4" placeholder="Why did you enter? What happened? What would you improve?"></textarea>
+          </label>
+          <label class="checkbox-label">
+            <input name="followedRules" type="checkbox" checked />
+            Followed playbook rules
+          </label>
+          <label class="checkbox-label">
+            <input name="reviewed" type="checkbox" />
+            Mark reviewed
+          </label>
+        </div>
+
+        <footer class="dialog-actions">
+          <button class="danger-button" id="deleteTradeButton" type="button">Delete</button>
+          <span></span>
+          <button class="ghost-button" data-close-dialog type="button">Cancel</button>
+          <button class="primary-button" id="saveTradeButton" type="submit">Save Trade</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
