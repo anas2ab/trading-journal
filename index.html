@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0c0f" />
+    <title>Trading Journal</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%230d0f13'/%3E%3Cpath d='M9 34l9-9 7 5 14-15' fill='none' stroke='%23d7ff64' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="features.css" />
+  </head>
+  <body>
+    <script>
+      // Set the theme before first paint so a dark session never flashes light.
+      try {
+        if (localStorage.getItem("personal-trading-journal-theme") !== "light") document.body.classList.add("dark-mode");
+      } catch {
+        document.body.classList.add("dark-mode");
+      }
+    </script>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" role="img" focusable="false">
+              <path class="brand-chart-line" d="M5 35 15.5 24.5 23.5 30 39.5 13" />
+              <path class="brand-chart-line brand-chart-line-soft" d="M5 42h38" />
+              <g class="brand-candles">
+                <path d="M12 7v27" />
+                <rect x="7.25" y="13" width="9.5" height="14" rx="2" />
+                <path d="M24 4v33" />
+                <rect x="19.25" y="15" width="9.5" height="16" rx="2" />
+                <path d="M36 6v27" />
+                <rect x="31.25" y="10" width="9.5" height="13.5" rx="2" />
+              </g>
+            </svg>
+          </span>
+          <strong>Trading Journal</strong>
+        </div>
+
+        <nav class="nav-list" id="navList"></nav>
+
+        <section class="sidebar-panel" aria-label="Today">
+          <div>
+            <span class="eyebrow">Today</span>
+            <strong id="sidebarPnl">$0.00</strong>
+            <small id="sidebarMeta">0 closed today</small>
+          </div>
+          <div>
+            <span class="eyebrow">Open P&amp;L</span>
+            <strong id="sidebarOpen">—</strong>
+            <small>Delayed quotes</small>
+          </div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="topbar-title">
+            <h1 id="viewTitle">Dashboard</h1>
+            <span id="viewEyebrow"></span>
+          </div>
+          <div class="market-strip" id="marketStrip" aria-label="Market snapshot, delayed"></div>
+          <div class="topbar-actions">
+            <label class="mobile-nav"><span class="sr-only">Go to page</span><select id="mobileNav" aria-label="Go to page"></select></label>
+            <button class="palette-button" id="paletteButton" type="button" aria-label="Search and commands">
+              <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <span>Search</span><kbd>⌘K</kbd>
+            </button>
+            <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch theme"></button>
+            <label class="journal-switcher" title="Switch saved journal">
+              <span class="sr-only">Journal</span>
+              <select id="journalSelect" aria-label="Saved journal"></select>
+            </label>
+            <span class="sync-pill" id="syncStatus" role="status">Saved locally</span>
+            <button class="btn btn-primary" id="newTradeButton" type="button" title="New trade (N)">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              <span>New trade</span>
+            </button>
+          </div>
+        </header>
+
+        <section id="appView" class="view"></section>
+      </main>
+    </div>
+
+    <dialog id="tradeDrawer" class="drawer" aria-label="Trade details">
+      <div id="tradeDetailMount"></div>
+    </dialog>
+
+    <dialog id="rollDialog" class="mini-dialog" aria-labelledby="rollTitle">
+      <form>
+        <header class="mini-dialog-head">
+          <div>
+            <h2 id="rollTitle">Roll position</h2>
+            <p id="rollSummary"></p>
+          </div>
+          <button class="icon-btn" data-close-roll type="button" aria-label="Close">×</button>
+        </header>
+        <h3 class="sub-head">Close current</h3>
+        <div class="form-row">
+          <label>Close date<input name="closeDate" type="date" required /></label>
+          <label>Buy-back per contract<input name="buyback" type="number" step="0.01" min="0" required /></label>
+        </div>
+        <h3 class="sub-head">Open replacement</h3>
+        <div class="form-row">
+          <label>Roll date<input name="openDate" type="date" required /></label>
+          <label>New expiration<input name="expiration" type="date" required /></label>
+        </div>
+        <div class="form-row three">
+          <label>New strike<input name="strike" type="number" step="0.01" min="0.01" required /></label>
+          <label>New credit<input name="credit" type="number" step="0.01" min="0" required /></label>
+          <label>Contracts<input name="contracts" type="number" step="1" min="1" required readonly /></label>
+        </div>
+        <p class="roll-preview" id="rollPreview" aria-live="polite"></p>
+        <div class="review-actions">
+          <button class="btn" data-close-roll type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">Roll position</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="paletteDialog" class="palette" aria-label="Search and commands">
+      <label class="palette-input">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span class="sr-only">Search pages, actions and tickers</span>
+        <input type="text" placeholder="Search pages, actions and tickers" autocomplete="off" spellcheck="false" />
+      </label>
+      <div id="paletteList" class="palette-list"></div>
+    </dialog>
+
+    <dialog id="tradeDialog" class="trade-dialog">
+      <form method="dialog" id="tradeForm">
+        <header class="dialog-header">
+          <div>
+            <span class="eyebrow" id="dialogMode">New Trade</span>
+            <h2>Log a trade</h2>
+            <p>Capture the position now. Add the outcome whenever it closes.</p>
+          </div>
+          <button class="icon-button" data-close-dialog type="button" aria-label="Close">×</button>
+        </header>
+
+        <div class="trade-form-sections trade-ticket">
+          <section class="form-section trade-ticket-panel">
+            <div class="ticket-heading">
+              <div>
+                <span class="ticket-kicker">Position ticket</span>
+                <h3 id="tradeTicketTitle">Option Trade</h3>
+              </div>
+              <p>Required fields are kept to the essentials.</p>
+            </div>
+            <div class="form-grid ticket-grid">
+              <div class="ticket-section-label ticket-overview-label" data-step="01">
+                <span>Instrument</span>
+                <small>What did you trade?</small>
+              </div>
+              <label class="ticket-trade-type">
+                Trade Type
+                <select name="assetClass">
+                  <option value="Options">Option Trade</option>
+                  <option value="Stocks">Share Purchase</option>
+                </select>
+              </label>
+              <label class="ticket-symbol">
+                Symbol
+                <input name="symbol" type="text" required placeholder="e.g. AAPL" autocomplete="off" spellcheck="false" />
+              </label>
+              <label class="ticket-open-date">
+                Open Date
+                <input name="date" type="date" required />
+              </label>
+
+              <div class="ticket-section-label option-field ticket-position-label" data-step="02">
+                <span>Position</span>
+                <small>Define the contract and cost.</small>
+              </div>
+              <label class="option-field ticket-strategy">
+                Strategy
+                <select name="strategy"></select>
+              </label>
+              <label class="option-field ticket-contracts">
+                Contracts
+                <input name="contracts" type="number" step="1" min="1" required placeholder="1" />
+              </label>
+              <label class="option-field standard-option-field ticket-expiration">
+                <span data-spread-label="expiration">Expiration</span>
+                <input name="optionExpiration" type="date" required />
+              </label>
+              <label class="option-field standard-option-field single-strike-field ticket-strike">
+                Strike
+                <input name="optionStrike" type="number" step="0.01" required placeholder="0.00" />
+              </label>
+              <label class="option-field spread-field diagonal-field ticket-spread-type" hidden>
+                Option Type
+                <select name="spreadOptionType">
+                  <option value="call">Call</option>
+                  <option value="put">Put</option>
+                </select>
+              </label>
+              <label class="option-field spread-field diagonal-field ticket-spread-long-expiration" hidden>
+                Long Leg Expiration
+                <input name="spreadLongExpiration" type="date" />
+              </label>
+              <label class="option-field spread-field ticket-spread-strike" hidden>
+                <span data-spread-label="short">Short Strike</span>
+                <input name="spreadShortStrike" type="number" step="0.01" placeholder="0.00" />
+              </label>
+              <label class="option-field spread-field ticket-spread-strike" hidden>
+                <span data-spread-label="long">Long Strike</span>
+                <input name="spreadLongStrike" type="number" step="0.01" placeholder="0.00" />
+              </label>
+              <label class="option-field spread-field condor-field ticket-spread-strike" hidden>
+                Short Call Strike
+                <input name="spreadCallShortStrike" type="number" step="0.01" placeholder="0.00" />
+              </label>
+              <label class="option-field spread-field condor-field ticket-spread-strike" hidden>
+                Long Call Strike
+                <input name="spreadCallLongStrike" type="number" step="0.01" placeholder="0.00" />
+              </label>
+              <div class="ticket-section-label stock-field ticket-position-label" data-step="02" hidden>
+                <span>Position</span>
+                <small>Define the share purchase.</small>
+              </div>
+              <label class="stock-field ticket-shares" hidden>
+                Shares
+                <input name="shares" type="number" step="0.0001" min="0.0001" placeholder="100" />
+              </label>
+              <label class="trade-price-field ticket-entry">
+                <span data-entry-label>Entry</span>
+                <input name="entry" type="number" step="0.01" required placeholder="0.00" />
+              </label>
+
+              <div class="ticket-section-label pmcc-field ticket-position-label" data-step="02" hidden>
+                <span>Long call</span>
+                <small>Set the stock-replacement leg.</small>
+              </div>
+              <label class="pmcc-field ticket-pmcc-long-expiration" hidden>
+                Long Call Expiration
+                <input name="pmccLongExpiration" type="date" />
+              </label>
+              <label class="pmcc-field ticket-pmcc-long-strike" hidden>
+                Long Call Strike
+                <input name="pmccLongStrike" type="number" step="0.01" />
+              </label>
+              <label class="pmcc-field ticket-pmcc-long-debit" hidden>
+                Long Call Debit
+                <input name="pmccLongDebit" type="number" step="0.01" />
+              </label>
+              <div class="ticket-section-label pmcc-field ticket-short-call-label" data-step="03" hidden>
+                <span>Optional short call</span>
+                <small>Add the income leg if opened.</small>
+              </div>
+              <label class="pmcc-field ticket-pmcc-short-expiration" hidden>
+                Short Call Expiration
+                <input name="pmccShortExpiration" type="date" />
+              </label>
+              <label class="pmcc-field ticket-pmcc-short-strike" hidden>
+                Short Call Strike
+                <input name="pmccShortStrike" type="number" step="0.01" />
+              </label>
+              <label class="pmcc-field ticket-pmcc-short-credit" hidden>
+                Short Call Credit
+                <input name="pmccShortCredit" type="number" step="0.01" />
+              </label>
+              <label class="pmcc-field ticket-pmcc-net" hidden>
+                Net Debit
+                <input id="pmccNetDebit" type="number" step="0.01" readonly />
+              </label>
+
+              <div class="ticket-section-label trade-close-field ticket-close-label" data-step="03">
+                <span>Outcome</span>
+                <small>Optional. Leave blank while this trade is open.</small>
+              </div>
+              <label class="trade-close-field ticket-close-date">
+                Close Date
+                <input name="exitDate" type="date" />
+              </label>
+              <label class="trade-close-field ticket-exit">
+                <span data-exit-label>Exit</span>
+                <input name="exit" type="number" step="0.01" placeholder="Blank while open" />
+              </label>
+              <div class="trade-close-field close-preview ticket-close-preview" id="closePnlPreview" aria-live="polite"></div>
+            </div>
+          </section>
+        </div>
+
+        <footer class="dialog-actions">
+          <button class="danger-button" id="deleteTradeButton" type="button">Delete</button>
+          <button class="ghost-button" id="assignCspButton" type="button" hidden>Assign shares</button>
+          <div class="dialog-action-group">
+            <button class="ghost-button" data-close-dialog type="button">Cancel</button>
+            <button class="primary-button" id="saveTradeButton" type="submit">Save Trade</button>
+          </div>
+        </footer>
+      </form>
+    </dialog>
+
+    <div class="chart-tip" id="chartTip" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>
+
+    <script src="app.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/views-overview.js"></script>
+    <script src="js/views-journal.js"></script>
+    <script src="js/views-analytics.js"></script>
+    <script src="js/views-tools.js"></script>
+    <script src="js/shell.js"></script>
+    <script>startApp();</script>
+  </body>
+</html>
